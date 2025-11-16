@@ -32,19 +32,18 @@ export default function YouTubeInput({ onSubmit, isLoading }: YouTubeInputProps)
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
             <input
-              type="url"
+              type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://youtube.com/watch?v=..."
+              placeholder="https://youtube.com/watch?v=... ou youtu.be/..."
               className="w-full px-6 py-4 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-primary transition-colors"
               disabled={isLoading}
-              required
             />
           </div>
 
           <button
             type="submit"
-            disabled={isLoading || !url.trim()}
+            disabled={isLoading || url.trim().length === 0}
             className="w-full px-6 py-4 bg-gradient-to-r from-primary to-secondary text-white font-semibold rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98]"
           >
             {isLoading ? (
