@@ -18,6 +18,8 @@ class ClipSerializer(serializers.ModelSerializer):
             'start_time',
             'end_time',
             'duration',
+            'subtitle_text',
+            'include_subtitles',
             'viral_score',
             'viral_reason',
             'original_clip_path',
@@ -35,6 +37,7 @@ class ClipCreateSerializer(serializers.Serializer):
     """Serializer for creating a new clip"""
     video_id = serializers.IntegerField(required=True)
     moment_index = serializers.IntegerField(required=True)
+    include_subtitles = serializers.BooleanField(required=False, default=False)
 
     def validate_moment_index(self, value):
         """Validate that moment_index is non-negative"""

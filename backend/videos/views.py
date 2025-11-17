@@ -76,10 +76,25 @@ class VideoViewSet(viewsets.ModelViewSet):
                 )
 
             # Analyze viral moments with Gemini
+            print(f"Calling Gemini to analyze {len(video.transcript)} chars of transcript...")
             viral_moments = gemini_service.analyze_viral_moments(
                 video.transcript,
                 video.transcript_with_timestamps
             )
+            print(f"Gemini returned {len(viral_moments)} viral moments")
+
+            # Debug: Print first viral moment details
+            if viral_moments:
+                first = viral_moments[0]
+                print(f"\n=== DEBUG: Top viral moment ===")
+                print(f"Title: {first.get('title')}")
+                print(f"Description: {first.get('description')}")
+                print(f"Start: {first.get('start_time')}s")
+                print(f"End: {first.get('end_time')}s")
+                print(f"Duration: {first.get('duration')}s")
+                print(f"Score: {first.get('viral_score')}")
+                print(f"==================================\n")
+
             video.viral_moments = viral_moments
             video.status = 'completed'
             video.save()

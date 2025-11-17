@@ -75,17 +75,25 @@ class YouTubeService:
 
     @staticmethod
     def get_transcript(video_id):
-        """Get video transcript with timestamps"""
+        """Get video transcript with timestamps - API v1.2.3+"""
         try:
-            # Try to get transcript in Portuguese first, then English
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            print(f"Trying to get transcript for video: {video_id}")
 
-            try:
-                transcript = transcript_list.find_transcript(['pt', 'pt-BR'])
-            except:
-                transcript = transcript_list.find_transcript(['en'])
+            # Initialize API (instance-based approach for v1.2.3+)
+            ytt_api = YouTubeTranscriptApi()
 
-            transcript_data = transcript.fetch()
+            # Fetch transcript with language preference
+            # Tries languages in order: PT-BR, PT, EN
+            fetched_transcript = ytt_api.fetch(
+                video_id,
+                languages=['pt-BR', 'pt', 'en'],
+                preserve_formatting=True
+            )
+
+            print(f"✓ Got transcript with {len(fetched_transcript)} entries")
+
+            # Convert to raw data (list of dicts)
+            transcript_data = fetched_transcript.to_raw_data()
 
             # Format transcript with timestamps
             formatted_transcript = []
@@ -93,18 +101,24 @@ class YouTubeService:
 
             for entry in transcript_data:
                 formatted_transcript.append({
-                    'text': entry['text'],
-                    'start': entry['start'],
-                    'duration': entry['duration']
+                    'text': entry.get('text', ''),
+                    'start': entry.get('start', 0),
+                    'duration': entry.get('duration', 0)
                 })
-                full_text.append(entry['text'])
+                full_text.append(entry.get('text', ''))
 
-            return {
+            result = {
                 'transcript': ' '.join(full_text),
                 'transcript_with_timestamps': formatted_transcript
             }
+
+            print(f"✓ Successfully formatted transcript: {len(full_text)} segments, {len(' '.join(full_text))} chars")
+            return result
+
         except Exception as e:
-            print(f"Transcript error: {e}")
+            print(f"❌ Transcript error: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'transcript': '',
                 'transcript_with_timestamps': []
@@ -116,7 +130,7 @@ class GeminiService:
 
     def __init__(self):
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-pro')
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
 
     def analyze_viral_moments(self, transcript, transcript_with_timestamps):
         """Analyze transcript and identify viral moments"""
@@ -134,15 +148,18 @@ Para cada momento, considere:
 5. Revelações ou informações surpreendentes
 
 Para cada momento, retorne um JSON com:
-- start_time: tempo de início em segundos
-- end_time: tempo de fim em segundos (máximo 90 segundos de duração)
-- title: título curto e chamativo (máx 60 caracteres)
-- description: descrição do momento (máx 200 caracteres)
+- start_time: tempo de início em segundos (EXATO do timestamp da transcrição)
+- end_time: tempo de fim em segundos (EXATO do timestamp da transcrição, máximo 90 segundos de duração)
+- title: título curto e chamativo que DESCREVA O CONTEÚDO do momento (máx 60 caracteres)
+- description: descrição do momento que RESUMA O QUE É DITO (máx 200 caracteres)
 - viral_score: pontuação de 0-100 indicando potencial viral
 - viral_reason: breve explicação de por que esse momento é viral
 - category: uma das categorias (historia, humor, conselho, polemica, revelacao)
+- transcript_preview: primeiras palavras da transcrição deste momento (para validação)
 
-IMPORTANTE:
+CRÍTICO:
+- Use os timestamps EXATOS dos dados fornecidos abaixo
+- O título e descrição devem BATER com o conteúdo da transcrição entre start_time e end_time
 - A duração de cada momento deve ser entre 15 e 90 segundos
 - Retorne APENAS um array JSON válido, sem texto adicional
 - Ordene os momentos por viral_score (maior primeiro)
@@ -150,8 +167,8 @@ IMPORTANTE:
 Transcrição:
 {transcript}
 
-Timestamps disponíveis:
-{transcript_with_timestamps[:50]}
+Timestamps disponíveis para referência (start = início em segundos, duration = duração):
+{transcript_with_timestamps[:100]}
 """
 
         try:

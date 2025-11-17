@@ -21,6 +21,8 @@ class Clip(models.Model):
     start_time = models.FloatField()  # in seconds
     end_time = models.FloatField()  # in seconds
     duration = models.FloatField()  # in seconds
+    subtitle_text = models.TextField(blank=True)  # Complete transcript for this clip segment
+    include_subtitles = models.BooleanField(default=False)  # Whether to burn subtitles into the video
 
     # Viral score from analysis
     viral_score = models.FloatField(default=0.0)

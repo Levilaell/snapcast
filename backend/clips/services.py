@@ -20,6 +20,11 @@ class VideoProcessingService:
         # Calculate duration
         duration = end_time - start_time
 
+        print(f"=== yt-dlp download parameters ===")
+        print(f"URL: {youtube_url}")
+        print(f"Start: {start_time}s, End: {end_time}s, Duration: {duration}s")
+        print(f"Section parameter: *{start_time}-{end_time}")
+
         # yt-dlp command to download segment
         cmd = [
             'yt-dlp',
@@ -30,6 +35,8 @@ class VideoProcessingService:
             '-o', str(output_path),
             youtube_url
         ]
+
+        print(f"Command: {' '.join(cmd)}")
 
         try:
             result = subprocess.run(
@@ -55,43 +62,45 @@ class VideoProcessingService:
         output_filename,
         subtitle_text,
         start_time,
-        duration
+        duration,
+        include_subtitles=True
     ):
-        """Create vertical (9:16) clip with burned-in animated subtitles"""
+        """Create vertical (9:16) clip with or without burned-in animated subtitles"""
 
         output_path = self.clips_dir / output_filename
 
-        # Split subtitle into manageable chunks
-        words = subtitle_text.split()
-        subtitle_chunks = []
-        chunk_size = 5  # 5 words per subtitle line
+        if include_subtitles and subtitle_text:
+            # Split subtitle into manageable chunks
+            words = subtitle_text.split()
+            subtitle_chunks = []
+            chunk_size = 5  # 5 words per subtitle line
 
-        for i in range(0, len(words), chunk_size):
-            chunk = ' '.join(words[i:i+chunk_size])
-            subtitle_chunks.append(chunk)
+            for i in range(0, len(words), chunk_size):
+                chunk = ' '.join(words[i:i+chunk_size])
+                subtitle_chunks.append(chunk)
 
-        # Create subtitle file (SRT format)
-        srt_path = self.clips_dir / f"{output_filename}.srt"
-        with open(srt_path, 'w', encoding='utf-8') as f:
-            chunk_duration = duration / len(subtitle_chunks)
-            for i, chunk in enumerate(subtitle_chunks):
-                start = i * chunk_duration
-                end = (i + 1) * chunk_duration
+            # Create subtitle file (SRT format)
+            srt_path = self.clips_dir / f"{output_filename}.srt"
+            with open(srt_path, 'w', encoding='utf-8') as f:
+                chunk_duration = duration / len(subtitle_chunks)
+                for i, chunk in enumerate(subtitle_chunks):
+                    start = i * chunk_duration
+                    end = (i + 1) * chunk_duration
 
-                f.write(f"{i+1}\n")
-                f.write(f"{self._format_srt_time(start)} --> {self._format_srt_time(end)}\n")
-                f.write(f"{chunk}\n\n")
+                    f.write(f"{i+1}\n")
+                    f.write(f"{self._format_srt_time(start)} --> {self._format_srt_time(end)}\n")
+                    f.write(f"{chunk}\n\n")
 
-        # FFmpeg command to create vertical clip with subtitles
-        cmd = [
-            'ffmpeg',
-            '-i', input_path,
-            '-vf', (
+            # FFmpeg command to create vertical clip with subtitles
+            # Fix Windows path for subtitles - escape backslashes and colons
+            srt_path_escaped = str(srt_path).replace('\\', '/').replace(':', '\\:')
+
+            video_filter = (
                 # Crop to vertical 9:16
                 "scale=1080:1920:force_original_aspect_ratio=increase,"
                 "crop=1080:1920,"
-                # Add subtitles
-                f"subtitles={srt_path}:force_style='"
+                # Add subtitles with properly escaped path
+                f"subtitles='{srt_path_escaped}':force_style='"
                 "FontName=Arial Bold,"
                 "FontSize=32,"
                 "PrimaryColour=&H00FFFFFF,"
@@ -102,7 +111,19 @@ class VideoProcessingService:
                 "Shadow=0,"
                 "MarginV=100,"
                 "Alignment=2'"
-            ),
+            )
+        else:
+            # No subtitles - just crop to vertical
+            video_filter = (
+                "scale=1080:1920:force_original_aspect_ratio=increase,"
+                "crop=1080:1920"
+            )
+            srt_path = None
+
+        cmd = [
+            'ffmpeg',
+            '-i', str(input_path),
+            '-vf', video_filter,
             '-c:v', 'libx264',
             '-preset', 'medium',
             '-crf', '23',
@@ -122,7 +143,7 @@ class VideoProcessingService:
             )
 
             # Clean up subtitle file
-            if srt_path.exists():
+            if srt_path and srt_path.exists():
                 srt_path.unlink()
 
             if result.returncode == 0:
@@ -136,7 +157,7 @@ class VideoProcessingService:
             raise Exception(f"Processing failed: {str(e)}")
         finally:
             # Clean up subtitle file in case of error
-            if srt_path.exists():
+            if srt_path and srt_path.exists():
                 srt_path.unlink()
 
     @staticmethod
@@ -152,6 +173,11 @@ class VideoProcessingService:
         """Extract subtitle text for the clip duration from transcript"""
         subtitle_text = []
 
+        print(f"=== Extracting subtitle text ===")
+        print(f"Looking for text between {start_time}s and {end_time}s")
+        print(f"Total transcript entries: {len(transcript_with_timestamps)}")
+
+        matched_count = 0
         for entry in transcript_with_timestamps:
             entry_start = entry['start']
             entry_end = entry_start + entry['duration']
@@ -159,5 +185,14 @@ class VideoProcessingService:
             # Check if entry overlaps with clip duration
             if entry_start < end_time and entry_end > start_time:
                 subtitle_text.append(entry['text'])
+                matched_count += 1
+                if matched_count <= 3:  # Show first 3 matches
+                    print(f"  Match: [{entry_start:.1f}s - {entry_end:.1f}s] {entry['text'][:50]}...")
 
-        return ' '.join(subtitle_text)
+        print(f"Total matched entries: {matched_count}")
+        result = ' '.join(subtitle_text)
+        print(f"Final subtitle text length: {len(result)} chars")
+        if len(result) > 0:
+            print(f"First 100 chars: {result[:100]}...")
+
+        return result

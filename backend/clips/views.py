@@ -25,6 +25,7 @@ class ClipViewSet(viewsets.ModelViewSet):
 
         video_id = serializer.validated_data['video_id']
         moment_index = serializer.validated_data['moment_index']
+        include_subtitles = serializer.validated_data.get('include_subtitles', False)
 
         # Get video
         try:
@@ -75,6 +76,7 @@ class ClipViewSet(viewsets.ModelViewSet):
             duration=moment.get('duration', moment['end_time'] - moment['start_time']),
             viral_score=moment.get('viral_score', 0),
             viral_reason=moment.get('viral_reason', ''),
+            include_subtitles=include_subtitles,
             status='pending'
         )
 
@@ -105,6 +107,16 @@ class ClipViewSet(viewsets.ModelViewSet):
         clip.save()
 
         # Download segment
+        print(f"=== Downloading clip segment ===")
+        print(f"Clip ID: {clip.id}")
+        print(f"Title: {clip.title}")
+        print(f"Description: {clip.description}")
+        print(f"Start time: {clip.start_time} seconds")
+        print(f"End time: {clip.end_time} seconds")
+        print(f"Duration: {clip.duration} seconds")
+        print(f"Viral score: {clip.viral_score}")
+        print(f"Reason: {clip.viral_reason}")
+
         original_filename = f"clip_{clip.id}_original.mp4"
         original_path = processing_service.download_clip_segment(
             video.youtube_url,
@@ -112,6 +124,7 @@ class ClipViewSet(viewsets.ModelViewSet):
             clip.end_time,
             original_filename
         )
+        print(f"Downloaded to: {original_path}")
         clip.original_clip_path = original_path
         clip.progress_percentage = 40
         clip.save()
@@ -128,14 +141,19 @@ class ClipViewSet(viewsets.ModelViewSet):
             clip.end_time
         )
 
-        # Create vertical clip with subtitles
+        # Save subtitle text to clip
+        clip.subtitle_text = subtitle_text
+        clip.save()
+
+        # Create vertical clip with or without subtitles
         processed_filename = f"clip_{clip.id}_final.mp4"
         processed_path = processing_service.create_vertical_clip_with_subtitles(
             original_path,
             processed_filename,
             subtitle_text,
             0,  # Start from beginning of clip
-            clip.duration
+            clip.duration,
+            include_subtitles=clip.include_subtitles
         )
         clip.processed_clip_path = processed_path
         clip.progress_percentage = 90
@@ -148,7 +166,11 @@ class ClipViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def download(self, request, pk=None):
-        """Get download URL for processed clip"""
+        """Download processed clip file directly"""
+        import os
+        from django.http import FileResponse
+        from django.conf import settings
+
         clip = self.get_object()
 
         if clip.status != 'completed':
@@ -163,8 +185,55 @@ class ClipViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Return file path (in production, use proper file serving)
-        return Response({
-            'download_url': clip.processed_clip_path,
-            'filename': f"{clip.title.replace(' ', '_')}.mp4"
-        })
+        # Check if file exists
+        if not os.path.exists(clip.processed_clip_path):
+            return Response(
+                {'error': 'Clip file not found on server'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Prepare filename for download
+        filename = f"{clip.title.replace(' ', '_').replace('/', '_')}.mp4"
+
+        # Open and return file as download
+        file_handle = open(clip.processed_clip_path, 'rb')
+        response = FileResponse(file_handle, content_type='video/mp4')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = os.path.getsize(clip.processed_clip_path)
+
+        return response
+
+    @action(detail=True, methods=['get'])
+    def stream(self, request, pk=None):
+        """Stream processed clip for video player"""
+        import os
+        from django.http import FileResponse
+
+        clip = self.get_object()
+
+        if clip.status != 'completed':
+            return Response(
+                {'error': 'Clip processing not completed yet'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not clip.processed_clip_path:
+            return Response(
+                {'error': 'Processed clip not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if file exists
+        if not os.path.exists(clip.processed_clip_path):
+            return Response(
+                {'error': 'Clip file not found on server'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Open and return file for streaming
+        file_handle = open(clip.processed_clip_path, 'rb')
+        response = FileResponse(file_handle, content_type='video/mp4')
+        response['Content-Length'] = os.path.getsize(clip.processed_clip_path)
+        response['Accept-Ranges'] = 'bytes'
+
+        return response

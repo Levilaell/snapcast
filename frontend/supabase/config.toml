@@ -1,0 +1,7 @@
+project_id = "pwddvsfrblyalxlpqagg"
+
+[functions.analyze-youtube-video]
+verify_jwt = true
+
+[functions.download-clip]
+verify_jwt = true
