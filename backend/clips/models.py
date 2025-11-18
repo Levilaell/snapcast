@@ -21,8 +21,7 @@ class Clip(models.Model):
     start_time = models.FloatField()  # in seconds
     end_time = models.FloatField()  # in seconds
     duration = models.FloatField()  # in seconds
-    subtitle_text = models.TextField(blank=True)  # Complete transcript for this clip segment
-    include_subtitles = models.BooleanField(default=False)  # Whether to burn subtitles into the video
+    subtitle_text = models.TextField(blank=True)  # Transcript text for display only (not burned into video)
 
     # Viral score from analysis
     viral_score = models.FloatField(default=0.0)
@@ -30,7 +29,7 @@ class Clip(models.Model):
 
     # File paths
     original_clip_path = models.CharField(max_length=500, blank=True)  # Downloaded segment
-    processed_clip_path = models.CharField(max_length=500, blank=True)  # Final vertical clip with subtitles
+    processed_clip_path = models.CharField(max_length=500, blank=True)  # Final vertical clip
 
     # Status tracking
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')

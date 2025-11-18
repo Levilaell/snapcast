@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Clip
-from .serializers import ClipSerializer, ClipCreateSerializer
+from .serializers import ClipSerializer, ClipCreateSerializer, ClipUpdateTimesSerializer
 from .services import VideoProcessingService
 from videos.models import Video
 
@@ -25,7 +25,6 @@ class ClipViewSet(viewsets.ModelViewSet):
 
         video_id = serializer.validated_data['video_id']
         moment_index = serializer.validated_data['moment_index']
-        include_subtitles = serializer.validated_data.get('include_subtitles', False)
 
         # Get video
         try:
@@ -76,7 +75,6 @@ class ClipViewSet(viewsets.ModelViewSet):
             duration=moment.get('duration', moment['end_time'] - moment['start_time']),
             viral_score=moment.get('viral_score', 0),
             viral_reason=moment.get('viral_reason', ''),
-            include_subtitles=include_subtitles,
             status='pending'
         )
 
@@ -98,7 +96,7 @@ class ClipViewSet(viewsets.ModelViewSet):
             )
 
     def _process_clip(self, clip, video):
-        """Process clip: download, crop, add subtitles, convert to vertical"""
+        """Process clip: download and crop to vertical"""
         processing_service = VideoProcessingService()
 
         # Update status
@@ -134,26 +132,20 @@ class ClipViewSet(viewsets.ModelViewSet):
         clip.progress_percentage = 50
         clip.save()
 
-        # Get subtitle text from transcript
+        # Get subtitle text from transcript (for display only, not burned into video)
         subtitle_text = processing_service.get_clip_subtitle_text(
             video.transcript_with_timestamps,
             clip.start_time,
             clip.end_time
         )
-
-        # Save subtitle text to clip
         clip.subtitle_text = subtitle_text
         clip.save()
 
-        # Create vertical clip with or without subtitles
+        # Create vertical clip (without burned subtitles)
         processed_filename = f"clip_{clip.id}_final.mp4"
-        processed_path = processing_service.create_vertical_clip_with_subtitles(
+        processed_path = processing_service.create_vertical_clip(
             original_path,
-            processed_filename,
-            subtitle_text,
-            0,  # Start from beginning of clip
-            clip.duration,
-            include_subtitles=clip.include_subtitles
+            processed_filename
         )
         clip.processed_clip_path = processed_path
         clip.progress_percentage = 90
@@ -240,3 +232,38 @@ class ClipViewSet(viewsets.ModelViewSet):
         response['Accept-Ranges'] = 'bytes'
 
         return response
+
+    @action(detail=True, methods=['post'])
+    def update_times(self, request, pk=None):
+        """Update clip start/end times and reprocess"""
+        clip = self.get_object()
+
+        serializer = ClipUpdateTimesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        new_start_time = serializer.validated_data['start_time']
+        new_end_time = serializer.validated_data['end_time']
+
+        # Update clip times
+        clip.start_time = new_start_time
+        clip.end_time = new_end_time
+        clip.duration = new_end_time - new_start_time
+        clip.status = 'pending'
+        clip.progress_percentage = 0
+        clip.save()
+
+        # Reprocess clip with new times
+        try:
+            self._process_clip(clip, clip.video)
+            return Response(
+                ClipSerializer(clip).data,
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            clip.status = 'failed'
+            clip.error_message = str(e)
+            clip.save()
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

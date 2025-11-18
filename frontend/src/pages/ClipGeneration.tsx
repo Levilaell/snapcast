@@ -6,9 +6,10 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Download, Loader2, Play, Eye, ExternalLink, Save } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Play, Eye, ExternalLink, Save, Edit3, Scissors } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "sonner";
+import YouTube from "react-youtube";
 
 import type { Clip } from "@/services/api";
 
@@ -24,6 +25,13 @@ const ClipGeneration = () => {
   const [editedDescription, setEditedDescription] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Timeline editor
+  const [showTimelineEditor, setShowTimelineEditor] = useState(false);
+  const [newStartTime, setNewStartTime] = useState(0);
+  const [newEndTime, setNewEndTime] = useState(0);
+  const [isReprocessing, setIsReprocessing] = useState(false);
+  const youtubePlayerRef = useRef<any>(null);
+
   // Busca inicial do clip
   const { data: initialClip, isLoading } = useQuery({
     queryKey: ["clip", id],
@@ -33,9 +41,9 @@ const ClipGeneration = () => {
 
   // Get video info
   const { data: video } = useQuery({
-    queryKey: ["video", initialClip?.video],
-    queryFn: () => api.getVideo(initialClip!.video),
-    enabled: !!initialClip?.video,
+    queryKey: ["video", initialClip?.video_id],
+    queryFn: () => api.getVideo(initialClip!.video_id),
+    enabled: !!initialClip?.video_id,
   });
 
   // Inicia polling quando o clip é carregado
@@ -87,8 +95,8 @@ const ClipGeneration = () => {
   };
 
   const handleBackToEpisode = () => {
-    if (clip && clip.video) {
-      navigate(`/episode/${clip.video}`);
+    if (clip && clip.video_id) {
+      navigate(`/episode/${clip.video_id}`);
     } else {
       navigate('/dashboard');
     }
@@ -121,6 +129,55 @@ const ClipGeneration = () => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleOpenTimelineEditor = () => {
+    if (!clip) return;
+    setNewStartTime(clip.start_time);
+    setNewEndTime(clip.end_time);
+    setShowTimelineEditor(true);
+  };
+
+  const handleReprocessClip = async () => {
+    if (!clip) return;
+
+    // Validação
+    if (newEndTime <= newStartTime) {
+      toast.error("O fim deve ser maior que o início");
+      return;
+    }
+    if (newEndTime - newStartTime > 120) {
+      toast.error("Duração máxima: 2 minutos");
+      return;
+    }
+
+    setIsReprocessing(true);
+    try {
+      const updatedClip = await api.updateClipTimes(clip.id, newStartTime, newEndTime);
+      setClip(updatedClip);
+      setShowTimelineEditor(false);
+      toast.success("Clip reprocessado com sucesso!");
+
+      // Inicia polling para acompanhar reprocessamento
+      await api.pollClipStatus(updatedClip.id, (updated) => {
+        setClip(updated);
+      });
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao reprocessar clip");
+    } finally {
+      setIsReprocessing(false);
+    }
+  };
+
+  const handleSeekYouTube = (time: number) => {
+    if (youtubePlayerRef.current) {
+      youtubePlayerRef.current.seekTo(time, true);
+    }
+  };
+
+  const getYouTubeVideoId = (url: string) => {
+    const match = url.match(/[?&]v=([^&]+)/);
+    return match ? match[1] : null;
   };
 
   const getStatusBadge = () => {
@@ -178,6 +235,13 @@ const ClipGeneration = () => {
 
               {isCompleted && (
                 <>
+                  <Button
+                    variant="outline"
+                    onClick={handleOpenTimelineEditor}
+                  >
+                    <Scissors className="w-4 h-4 mr-2" />
+                    Editar Timeline
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={togglePlay}
@@ -311,10 +375,6 @@ const ClipGeneration = () => {
                   <span className="text-muted-foreground">Fim:</span>
                   <p className="font-medium">{formatTime(clip.end_time)}</p>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Legendas:</span>
-                  <p className="font-medium">{clip.include_subtitles ? 'Ativadas' : 'Desativadas'}</p>
-                </div>
               </div>
 
               {video && (
@@ -343,6 +403,130 @@ const ClipGeneration = () => {
           </div>
         </div>
       </div>
+
+      {/* Timeline Editor Modal */}
+      {showTimelineEditor && video && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">Editar Timeline do Clip</h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowTimelineEditor(false)}
+                  disabled={isReprocessing}
+                >
+                  ✕
+                </Button>
+              </div>
+
+              {/* YouTube Player */}
+              <div className="mb-6 aspect-video bg-black rounded-lg overflow-hidden">
+                <YouTube
+                  videoId={getYouTubeVideoId(video.youtube_url) || ''}
+                  opts={{
+                    width: '100%',
+                    height: '100%',
+                    playerVars: {
+                      start: Math.floor(newStartTime),
+                      autoplay: 0,
+                    },
+                  }}
+                  onReady={(event) => {
+                    youtubePlayerRef.current = event.target;
+                  }}
+                />
+              </div>
+
+              {/* Timeline Controls */}
+              <div className="space-y-6">
+                {/* Start Time */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm font-medium">Início do Corte</Label>
+                    <span className="text-sm text-muted-foreground">{formatTime(newStartTime)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max={video.duration}
+                    step="0.1"
+                    value={newStartTime}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      setNewStartTime(value);
+                      handleSeekYouTube(value);
+                    }}
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+
+                {/* End Time */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm font-medium">Fim do Corte</Label>
+                    <span className="text-sm text-muted-foreground">{formatTime(newEndTime)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max={video.duration}
+                    step="0.1"
+                    value={newEndTime}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      setNewEndTime(value);
+                      handleSeekYouTube(value);
+                    }}
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+
+                {/* Duration Display */}
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Duração do novo clip:</span>
+                    <span className="font-semibold">{formatTime(newEndTime - newStartTime)}</span>
+                  </div>
+                  {(newEndTime - newStartTime) > 120 && (
+                    <p className="text-red-500 text-xs mt-2">⚠ Duração máxima: 2 minutos</p>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowTimelineEditor(false)}
+                    disabled={isReprocessing}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={handleReprocessClip}
+                    disabled={isReprocessing || newEndTime - newStartTime > 120}
+                    className="flex-1"
+                  >
+                    {isReprocessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Reprocessando...
+                      </>
+                    ) : (
+                      <>
+                        <Scissors className="w-4 h-4 mr-2" />
+                        Reprocessar Clip
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

@@ -55,7 +55,7 @@ const EpisodeDetails = () => {
 
     try {
       // Cria ou busca o clip existente no backend
-      const clip = await api.createClip(video.id, momentIndex, true);
+      const clip = await api.createClip(video.id, momentIndex);
 
       // Navega para a página do clip
       navigate(`/clip/${clip.id}`);

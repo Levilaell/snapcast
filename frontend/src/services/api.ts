@@ -24,16 +24,16 @@ export interface ViralMoment {
 
 export interface Clip {
   id: number;
-  video: number;
+  video: Video;
+  video_id: number;
   start_time: number;
   end_time: number;
   title: string;
   description: string;
+  subtitle_text: string | null;
   status: 'pending' | 'downloading' | 'processing' | 'completed' | 'failed';
   progress_percentage: number;
   output_file_path: string | null;
-  subtitle_text: string | null;
-  include_subtitles: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -102,15 +102,13 @@ class ApiService {
 
   async createClip(
     videoId: number,
-    momentIndex: number,
-    includeSubtitles: boolean = true
+    momentIndex: number
   ): Promise<Clip> {
     return this.request<Clip>('/clips/', {
       method: 'POST',
       body: JSON.stringify({
         video_id: videoId,
         moment_index: momentIndex,
-        include_subtitles: includeSubtitles,
       }),
     });
   }
@@ -118,6 +116,20 @@ class ApiService {
   async deleteClip(id: number): Promise<void> {
     return this.request<void>(`/clips/${id}/`, {
       method: 'DELETE',
+    });
+  }
+
+  async updateClipTimes(
+    id: number,
+    startTime: number,
+    endTime: number
+  ): Promise<Clip> {
+    return this.request<Clip>(`/clips/${id}/update_times/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        start_time: startTime,
+        end_time: endTime,
+      }),
     });
   }
 
