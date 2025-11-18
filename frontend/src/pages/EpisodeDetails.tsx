@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Clock, TrendingUp, Video, ExternalLink, Sparkles, Zap } from "lucide-react";
+import { ArrowLeft, Clock, TrendingUp, Video, ExternalLink, Sparkles, Zap, Play, Scissors } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ const EpisodeDetails = () => {
       console.log('Fetching video with ID:', id, 'as number:', Number(id));
       const data = await api.getVideo(Number(id));
       console.log('Video data:', data);
+      console.log('Video viral_moments_sorted:', data.viral_moments_sorted);
       return data;
     },
     enabled: !!id,
@@ -26,7 +27,11 @@ const EpisodeDetails = () => {
 
   const { data: clips } = useQuery({
     queryKey: ["clips", id],
-    queryFn: () => api.getClips(Number(id)),
+    queryFn: async () => {
+      const data = await api.getClips(Number(id));
+      console.log('Clips data:', data);
+      return data;
+    },
     enabled: !!id,
   });
 
@@ -175,148 +180,149 @@ const EpisodeDetails = () => {
           </Card>
         )}
 
-        {/* Viral Moments */}
-        {video.status === 'completed' && video.viral_moments_sorted && (
+        {/* Clips Grid */}
+        {video.status === 'completed' && (
           <div>
-            <h2 className="text-2xl font-bold mb-6">
-              <Sparkles className="w-6 h-6 inline mr-2 text-primary" />
-              Momentos Virais Identificados
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">
+                Clips Gerados
+              </h2>
+              <div className="text-sm text-muted-foreground">
+                {video.viral_moments_sorted?.length || 0} clips disponíveis
+              </div>
+            </div>
 
-            {video.viral_moments_sorted.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {video.viral_moments_sorted && video.viral_moments_sorted.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {video.viral_moments_sorted.map((moment, index) => {
+                  console.log(`Moment ${index}:`, moment);
                   const score = getViralScore(moment);
+                  // Find clip by moment_index first, then by start_time as fallback
+                  const correspondingClip = clips?.find(c =>
+                    c.moment_index === index || Math.abs(c.start_time - moment.start_time) < 1
+                  );
+                  console.log(`Corresponding clip for moment ${index}:`, correspondingClip);
+
                   return (
-                  <Card
-                    key={index}
-                    className={`p-6 hover:shadow-lg transition-shadow border-2 ${getScoreColor(score)}`}
-                  >
-                    {/* Score Badge */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <span className="text-lg font-bold">#{index + 1}</span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {formatTimestamp(moment.start_time)}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <TrendingUp className="w-5 h-5" />
-                        <span className="text-lg font-bold">{score}</span>
-                      </div>
-                    </div>
-
-                    {/* Duration */}
-                    <div className="text-sm text-muted-foreground mb-3">
-                      <Clock className="w-4 h-4 inline mr-1" />
-                      Duração: ~{moment.duration}s
-                    </div>
-
-                    {/* Reason */}
-                    {moment.reason && (
-                      <div className="mb-4">
-                        <h4 className="text-xs font-semibold text-muted-foreground mb-1">
-                          Por que é viral:
-                        </h4>
-                        <p className="text-sm line-clamp-3">{moment.reason}</p>
-                      </div>
-                    )}
-
-                    {/* Transcript Preview */}
-                    {moment.transcript && (
-                      <div className="mb-4 p-3 bg-muted/50 rounded-lg">
-                        <p className="text-sm italic line-clamp-3">
-                          "{moment.transcript}"
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          const url = `${video.youtube_url}&t=${Math.floor(moment.start_time)}s`;
-                          window.open(url, '_blank');
-                        }}
-                        variant="outline"
-                        className="flex-1"
-                      >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Preview
-                      </Button>
-                      <Button
-                        size="sm"
+                    <Card key={index} className="overflow-hidden hover:shadow-lg transition group cursor-pointer">
+                      {/* Thumbnail */}
+                      <div
+                        className="relative aspect-video bg-secondary"
                         onClick={() => handleViewClip(index)}
-                        className="flex-1"
                       >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Ver Clip
-                      </Button>
-                    </div>
-                  </Card>
+                        {video.thumbnail_url ? (
+                          <img
+                            src={video.thumbnail_url}
+                            alt={`Clip ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Video className="w-12 h-12 text-muted-foreground" />
+                          </div>
+                        )}
+
+                        {/* Play overlay */}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                          <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
+                            <Play className="w-8 h-8 text-black ml-1" fill="black" />
+                          </div>
+                        </div>
+
+                        {/* Duration badge */}
+                        <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+                          {moment.duration}s
+                        </div>
+
+                        {/* Rank badge */}
+                        <div className="absolute top-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded font-bold">
+                          #{index + 1}
+                        </div>
+
+                        {/* Clip title overlay */}
+                        {correspondingClip?.title && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pt-8">
+                            <p className="text-white text-sm font-semibold line-clamp-2">
+                              {correspondingClip.title}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Content */}
+                      <div className="p-4">
+                        {/* Clip Title */}
+                        <h3 className="font-semibold text-sm mb-2 line-clamp-2 min-h-[40px]">
+                          {correspondingClip?.title || moment.transcript || moment.reason || `Clip ${index + 1}`}
+                        </h3>
+
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{moment.duration}s</span>
+                          </div>
+                          {correspondingClip && (
+                            <span className={`px-2 py-0.5 rounded ${
+                              correspondingClip.status === 'completed' ? 'bg-green-500/10 text-green-600' :
+                              correspondingClip.status === 'processing' ? 'bg-blue-500/10 text-blue-600' :
+                              'bg-yellow-500/10 text-yellow-600'
+                            }`}>
+                              {correspondingClip.status === 'completed' ? 'Pronto' :
+                               correspondingClip.status === 'processing' ? 'Processando' :
+                               'Pendente'}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Progress bar for processing clips */}
+                        {correspondingClip?.status === 'processing' && (
+                          <div className="mb-3">
+                            <div className="w-full bg-muted rounded-full h-1.5">
+                              <div
+                                className="bg-blue-500 h-1.5 rounded-full transition-all"
+                                style={{ width: `${correspondingClip.progress_percentage || 0}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const url = `${video.youtube_url}&t=${Math.floor(moment.start_time)}s`;
+                              window.open(url, '_blank');
+                            }}
+                          >
+                            <ExternalLink className="w-3 h-3 mr-1" />
+                            Preview
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-orange-500 hover:bg-orange-600"
+                            onClick={() => handleViewClip(index)}
+                          >
+                            Ver Clip
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
                   );
                 })}
               </div>
             ) : (
-              <Card className="p-8 text-center">
-                <Sparkles className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  Nenhum momento viral foi identificado neste episódio.
+              <Card className="p-12 text-center">
+                <Scissors className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Nenhum clip ainda</h3>
+                <p className="text-muted-foreground mb-4">
+                  Os momentos virais estão sendo identificados
                 </p>
               </Card>
             )}
-          </div>
-        )}
-
-        {/* Generated Clips Section */}
-        {clips && clips.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-2xl font-bold mb-6">
-              <Video className="w-6 h-6 inline mr-2 text-primary" />
-              Clips Gerados ({clips.length})
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {clips.map((clip) => (
-                <Card key={clip.id} className="p-4 hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => navigate(`/clip/${clip.id}`)}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-sm line-clamp-1">{clip.title}</h3>
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      clip.status === 'completed' ? 'bg-green-500/10 text-green-600' :
-                      clip.status === 'processing' ? 'bg-blue-500/10 text-blue-600' :
-                      clip.status === 'failed' ? 'bg-red-500/10 text-red-600' :
-                      'bg-yellow-500/10 text-yellow-600'
-                    }`}>
-                      {clip.status === 'completed' ? 'Pronto' :
-                       clip.status === 'processing' ? 'Processando' :
-                       clip.status === 'failed' ? 'Falhou' :
-                       'Pendente'}
-                    </span>
-                  </div>
-
-                  <div className="text-xs text-muted-foreground mb-2">
-                    {formatTimestamp(clip.start_time)} - {formatTimestamp(clip.end_time)}
-                  </div>
-
-                  {clip.status === 'processing' && (
-                    <div className="mt-2">
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-primary h-2 rounded-full transition-all"
-                          style={{ width: `${clip.progress_percentage}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-center mt-1 text-muted-foreground">
-                        {clip.progress_percentage}%
-                      </p>
-                    </div>
-                  )}
-                </Card>
-              ))}
-            </div>
           </div>
         )}
       </div>

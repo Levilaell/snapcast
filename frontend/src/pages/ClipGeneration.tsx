@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Download, Loader2, Play, Eye, ExternalLink, Save, Edit3, Scissors } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Play, ExternalLink, Save, Edit3, Scissors } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import YouTube from "react-youtube";
@@ -243,13 +243,6 @@ const ClipGeneration = () => {
                     Editar Timeline
                   </Button>
                   <Button
-                    variant="outline"
-                    onClick={togglePlay}
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    Preview
-                  </Button>
-                  <Button
                     onClick={handleDownload}
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -422,21 +415,24 @@ const ClipGeneration = () => {
               </div>
 
               {/* YouTube Player */}
-              <div className="mb-6 aspect-video bg-black rounded-lg overflow-hidden">
-                <YouTube
-                  videoId={getYouTubeVideoId(video.youtube_url) || ''}
-                  opts={{
-                    width: '100%',
-                    height: '100%',
-                    playerVars: {
-                      start: Math.floor(newStartTime),
-                      autoplay: 0,
-                    },
-                  }}
-                  onReady={(event) => {
-                    youtubePlayerRef.current = event.target;
-                  }}
-                />
+              <div className="mb-6 relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <div className="absolute inset-0">
+                  <YouTube
+                    videoId={getYouTubeVideoId(video.youtube_url) || ''}
+                    opts={{
+                      width: '100%',
+                      height: '100%',
+                      playerVars: {
+                        start: Math.floor(newStartTime),
+                        autoplay: 0,
+                      },
+                    }}
+                    onReady={(event) => {
+                      youtubePlayerRef.current = event.target;
+                    }}
+                    className="w-full h-full"
+                  />
+                </div>
               </div>
 
               {/* Timeline Controls */}

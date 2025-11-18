@@ -14,7 +14,8 @@ export interface Video {
 }
 
 export interface ViralMoment {
-  timestamp: number;
+  start_time: number; // Backend usa start_time
+  timestamp?: number; // Compatibilidade
   duration: number;
   viral_score: number; // Backend usa viral_score, não virality_score
   virality_score?: number; // Mantém compatibilidade
@@ -26,8 +27,10 @@ export interface Clip {
   id: number;
   video: Video;
   video_id: number;
+  moment_index: number;
   start_time: number;
   end_time: number;
+  duration: number;
   title: string;
   description: string;
   subtitle_text: string | null;
@@ -61,7 +64,14 @@ class ApiService {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      // Check if response has content
+      const contentType = response.headers.get('content-type');
+      if (response.status === 204 || !contentType || !contentType.includes('application/json')) {
+        return undefined as T;
+      }
+
+      const text = await response.text();
+      return text ? JSON.parse(text) : undefined as T;
     } catch (error) {
       console.error('API request failed:', error);
       throw error;
