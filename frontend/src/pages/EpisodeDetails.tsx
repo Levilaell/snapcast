@@ -246,10 +246,12 @@ const EpisodeDetails = () => {
                         </div>
 
                         {/* Clip title overlay */}
-                        {correspondingClip?.title && (
+                        {(correspondingClip?.title || moment.title || moment.transcript || moment.reason) && (
                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 pt-8">
                             <p className="text-white text-sm font-semibold line-clamp-2">
-                              {correspondingClip.title}
+                              {correspondingClip?.title && correspondingClip.title.trim() !== ''
+                                ? correspondingClip.title
+                                : moment.title || moment.transcript || moment.reason || `Momento Viral #${index + 1}`}
                             </p>
                           </div>
                         )}
@@ -259,7 +261,9 @@ const EpisodeDetails = () => {
                       <div className="p-4">
                         {/* Clip Title */}
                         <h3 className="font-semibold text-sm mb-2 line-clamp-2 min-h-[40px]">
-                          {correspondingClip?.title || moment.transcript || moment.reason || `Clip ${index + 1}`}
+                          {correspondingClip?.title && correspondingClip.title.trim() !== ''
+                            ? correspondingClip.title
+                            : moment.title || moment.transcript || moment.reason || `Momento Viral #${index + 1}`}
                         </h3>
 
                         <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">

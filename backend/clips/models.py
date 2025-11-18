@@ -15,6 +15,9 @@ class Clip(models.Model):
 
     video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='clips')
 
+    # Reference to the viral moment this clip was created from
+    moment_index = models.IntegerField(default=-1)  # Index in video.viral_moments_sorted
+
     # Clip details
     title = models.CharField(max_length=500)
     description = models.TextField(blank=True)

@@ -52,12 +52,18 @@ class ClipViewSet(viewsets.ModelViewSet):
 
         moment = viral_moments[moment_index]
 
-        # Check if clip already exists
+        # Check if clip already exists (by moment_index first, then by times)
         existing_clip = Clip.objects.filter(
             video=video,
-            start_time=moment['start_time'],
-            end_time=moment['end_time']
+            moment_index=moment_index
         ).first()
+
+        if not existing_clip:
+            existing_clip = Clip.objects.filter(
+                video=video,
+                start_time=moment['start_time'],
+                end_time=moment['end_time']
+            ).first()
 
         if existing_clip:
             return Response(
@@ -68,13 +74,14 @@ class ClipViewSet(viewsets.ModelViewSet):
         # Create clip record
         clip = Clip.objects.create(
             video=video,
-            title=moment.get('title', ''),
-            description=moment.get('description', ''),
+            moment_index=moment_index,
+            title=moment.get('title', moment.get('transcript', f'Clip {moment_index + 1}')),
+            description=moment.get('description', moment.get('reason', '')),
             start_time=moment['start_time'],
             end_time=moment['end_time'],
             duration=moment.get('duration', moment['end_time'] - moment['start_time']),
             viral_score=moment.get('viral_score', 0),
-            viral_reason=moment.get('viral_reason', ''),
+            viral_reason=moment.get('viral_reason', moment.get('reason', '')),
             status='pending'
         )
 

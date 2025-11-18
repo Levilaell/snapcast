@@ -15,19 +15,24 @@ export interface Video {
 
 export interface ViralMoment {
   start_time: number; // Backend usa start_time
+  end_time: number;
   timestamp?: number; // Compatibilidade
   duration: number;
   viral_score: number; // Backend usa viral_score, não virality_score
   virality_score?: number; // Mantém compatibilidade
-  reason: string;
-  transcript: string;
+  title?: string; // Título gerado pela IA
+  description?: string; // Descrição gerada pela IA
+  reason: string; // Razão de ser viral (viral_reason)
+  viral_reason?: string; // Compatibilidade
+  transcript: string; // Transcrição do momento
+  category?: string; // Categoria do momento (historia/humor/conselho/polemica/revelacao)
 }
 
 export interface Clip {
   id: number;
   video: Video;
   video_id: number;
-  moment_index: number;
+  moment_index: number;  // Index in video.viral_moments_sorted
   start_time: number;
   end_time: number;
   duration: number;

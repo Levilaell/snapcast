@@ -15,6 +15,7 @@ class ClipSerializer(serializers.ModelSerializer):
             'id',
             'video',
             'video_id',
+            'moment_index',
             'title',
             'description',
             'start_time',
