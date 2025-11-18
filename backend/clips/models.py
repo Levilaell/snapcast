@@ -36,6 +36,12 @@ class Clip(models.Model):
     error_message = models.TextField(blank=True)
     progress_percentage = models.IntegerField(default=0)
 
+    # YouTube Integration
+    youtube_video_id = models.CharField(max_length=100, blank=True, null=True)
+    youtube_url = models.URLField(blank=True, null=True)
+    is_published_youtube = models.BooleanField(default=False)
+    youtube_published_at = models.DateTimeField(blank=True, null=True)
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -45,3 +51,8 @@ class Clip(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.start_time}s - {self.end_time}s) - Score: {self.viral_score}"
+
+    @property
+    def output_file_path(self):
+        """Retorna o caminho do arquivo final processado"""
+        return self.processed_clip_path if self.processed_clip_path else self.original_clip_path

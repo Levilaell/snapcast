@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     # Local apps
     'videos',
     'clips',
+    'youtube',
 ]
 
 MIDDLEWARE = [
@@ -169,3 +170,9 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
+# YouTube Integration Settings
+YOUTUBE_CLIENT_SECRETS_FILE = os.path.join(BASE_DIR, 'client_secrets.json')
+YOUTUBE_API_SERVICE_NAME = 'youtube'
+YOUTUBE_API_VERSION = 'v3'
+YOUTUBE_UPLOAD_SCOPE = 'https://www.googleapis.com/auth/youtube.upload'
