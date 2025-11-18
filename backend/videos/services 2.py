@@ -75,39 +75,37 @@ class YouTubeService:
 
     @staticmethod
     def get_transcript(video_id):
-        """Get video transcript with timestamps using youtube-transcript-api v1.2.3+"""
+        """Get video transcript with timestamps - API v1.2.3+"""
         try:
             print(f"Trying to get transcript for video: {video_id}")
 
-            # Initialize API instance (v1.2.3+ uses instance-based approach)
+            # Initialize API (instance-based approach for v1.2.3+)
             ytt_api = YouTubeTranscriptApi()
 
             # Fetch transcript with language preference
-            # Tries languages in order: PT, PT-BR, EN
-            transcript_data = ytt_api.fetch(
+            # Tries languages in order: PT-BR, PT, EN
+            fetched_transcript = ytt_api.fetch(
                 video_id,
-                languages=['pt', 'pt-BR', 'en']
+                languages=['pt-BR', 'pt', 'en'],
+                preserve_formatting=True
             )
 
-            print(f"✓ Got transcript with {len(transcript_data)} entries")
+            print(f"✓ Got transcript with {len(fetched_transcript)} entries")
+
+            # Convert to raw data (list of dicts)
+            transcript_data = fetched_transcript.to_raw_data()
 
             # Format transcript with timestamps
-            # Note: In v1.2.3, entries are FetchedTranscriptSnippet objects
             formatted_transcript = []
             full_text = []
 
             for entry in transcript_data:
-                # Access attributes directly (not dict keys)
-                text = entry.text if hasattr(entry, 'text') else str(entry)
-                start = entry.start if hasattr(entry, 'start') else 0
-                duration = entry.duration if hasattr(entry, 'duration') else 0
-
                 formatted_transcript.append({
-                    'text': text,
-                    'start': start,
-                    'duration': duration
+                    'text': entry.get('text', ''),
+                    'start': entry.get('start', 0),
+                    'duration': entry.get('duration', 0)
                 })
-                full_text.append(text)
+                full_text.append(entry.get('text', ''))
 
             result = {
                 'transcript': ' '.join(full_text),
@@ -132,70 +130,49 @@ class GeminiService:
 
     def __init__(self):
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel(
-            'gemini-2.5-pro',
-            generation_config={
-                'temperature': 0.7,
-                'max_output_tokens': 8192,
-            }
-        )
+        self.model = genai.GenerativeModel('gemini-2.5-flash')
 
     def analyze_viral_moments(self, transcript, transcript_with_timestamps):
         """Analyze transcript and identify viral moments"""
 
-        print(f"📊 Analyzing {len(transcript)} chars, {len(transcript_with_timestamps)} segments")
+        prompt = f"""
+Você é um especialista em identificar momentos virais em podcasts e vídeos longos.
 
-        # Build structured transcript with timestamps for better analysis
-        structured_transcript = []
-        for seg in transcript_with_timestamps:
-            time_formatted = f"[{int(seg['start']//60):02d}:{int(seg['start']%60):02d}]"
-            structured_transcript.append(f"{time_formatted} {seg['text']}")
+Analise a seguinte transcrição e identifique de 5 a 10 momentos com maior potencial viral para Reels/Shorts/TikTok.
 
-        full_transcript = "\n".join(structured_transcript)
+Para cada momento, considere:
+1. Histórias interessantes ou impactantes
+2. Momentos de humor ou risadas
+3. Conselhos práticos e valiosos
+4. Declarações polêmicas ou impactantes
+5. Revelações ou informações surpreendentes
 
-        prompt = f"""Você é especialista em identificar momentos virais em podcasts/vídeos para Reels/Shorts/TikTok.
-
-Analise TODA esta transcrição e identifique os 5-10 momentos com maior potencial viral.
-
-Critérios: histórias impactantes, humor, conselhos práticos, polêmicas, revelações.
-
-Para cada momento retorne JSON com:
-- start_time: início em segundos (número exato)
-- end_time: fim em segundos (duração entre 15-90s)
-- title: título chamativo (máx 60 chars)
-- description: resumo do que é dito (máx 200 chars)
-- viral_score: 0-100
-- viral_reason: por que é viral
-- category: historia/humor/conselho/polemica/revelacao
+Para cada momento, retorne um JSON com:
+- start_time: tempo de início em segundos (EXATO do timestamp da transcrição)
+- end_time: tempo de fim em segundos (EXATO do timestamp da transcrição, máximo 90 segundos de duração)
+- title: título curto e chamativo que DESCREVA O CONTEÚDO do momento (máx 60 caracteres)
+- description: descrição do momento que RESUMA O QUE É DITO (máx 200 caracteres)
+- viral_score: pontuação de 0-100 indicando potencial viral
+- viral_reason: breve explicação de por que esse momento é viral
+- category: uma das categorias (historia, humor, conselho, polemica, revelacao)
+- transcript_preview: primeiras palavras da transcrição deste momento (para validação)
 
 CRÍTICO:
-- Use timestamps EXATOS da transcrição
-- Duração: 15-90 segundos
-- Retorne APENAS array JSON válido
-- Ordene por viral_score (maior primeiro)
+- Use os timestamps EXATOS dos dados fornecidos abaixo
+- O título e descrição devem BATER com o conteúdo da transcrição entre start_time e end_time
+- A duração de cada momento deve ser entre 15 e 90 segundos
+- Retorne APENAS um array JSON válido, sem texto adicional
+- Ordene os momentos por viral_score (maior primeiro)
 
-Transcrição com timestamps:
-{full_transcript}
+Transcrição:
+{transcript}
+
+Timestamps disponíveis para referência (start = início em segundos, duration = duração):
+{transcript_with_timestamps[:100]}
 """
 
         try:
-            print(f"🤖 Calling Gemini 2.5 Pro to analyze transcript...")
-
-            # Add retry logic
-            import time
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    response = self.model.generate_content(prompt)
-                    break
-                except Exception as retry_error:
-                    if attempt < max_retries - 1:
-                        wait_time = (attempt + 1) * 3
-                        print(f"⚠️ Attempt {attempt + 1} failed, retrying in {wait_time}s...")
-                        time.sleep(wait_time)
-                    else:
-                        raise retry_error
-
+            response = self.model.generate_content(prompt)
             result_text = response.text.strip()
 
             # Clean up the response to extract JSON
@@ -208,8 +185,6 @@ Transcrição com timestamps:
             import json
             moments = json.loads(result_text.strip())
 
-            print(f"✓ Gemini returned {len(moments)} viral moments")
-
             # Validate and filter moments
             validated_moments = []
             for moment in moments:
@@ -218,11 +193,8 @@ Transcrição com timestamps:
                     moment['duration'] = duration
                     validated_moments.append(moment)
 
-            print(f"✓ {len(validated_moments)} moments validated")
             return validated_moments[:10]  # Return top 10
 
         except Exception as e:
-            print(f"❌ Gemini analysis error: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Gemini analysis error: {e}")
             return []

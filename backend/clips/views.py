@@ -197,9 +197,12 @@ class ClipViewSet(viewsets.ModelViewSet):
 
         # Open and return file as download
         file_handle = open(clip.processed_clip_path, 'rb')
-        response = FileResponse(file_handle, content_type='video/mp4')
-        response['Content-Disposition'] = f'attachment; filename="{filename}"'
-        response['Content-Length'] = os.path.getsize(clip.processed_clip_path)
+        response = FileResponse(
+            file_handle,
+            content_type='video/mp4',
+            as_attachment=True,
+            filename=filename
+        )
 
         return response
 
