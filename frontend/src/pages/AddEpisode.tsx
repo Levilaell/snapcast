@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Loader2, Youtube, ArrowLeft } from "lucide-react";
 import { api } from "@/services/api";
+import { Layout } from "@/components/Layout";
 
 const AddEpisode = () => {
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -63,23 +64,24 @@ const AddEpisode = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div>
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/dashboard")}
-            className="mb-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Voltar ao Dashboard
-          </Button>
+    <Layout>
+      <div className="min-h-screen p-6">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <div>
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/dashboard")}
+              className="mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar ao Dashboard
+            </Button>
 
-          <h1 className="text-4xl font-bold mb-2">Adicionar Episódio</h1>
-          <p className="text-muted-foreground">
-            Cole o link de um vídeo do YouTube para começar a análise
-          </p>
-        </div>
+            <h1 className="text-4xl font-bold mb-2">Adicionar Episódio</h1>
+            <p className="text-muted-foreground">
+              Cole o link de um vídeo do YouTube para começar a análise
+            </p>
+          </div>
 
         <Card>
           <CardHeader>
@@ -140,8 +142,9 @@ const AddEpisode = () => {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

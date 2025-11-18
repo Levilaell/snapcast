@@ -7,6 +7,7 @@ import { Plus, Upload, Play, Sparkles, TrendingUp, Video as VideoIcon, Clock, Sc
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Layout } from "@/components/Layout";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -84,26 +85,17 @@ const Dashboard = () => {
 
   if (videosLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Sparkles className="w-8 h-8 text-primary animate-spin" />
-      </div>
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center">
+          <Sparkles className="w-8 h-8 text-primary animate-spin" />
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold">SnapCast</span>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-6 py-8">
+    <Layout>
+      <div className="container mx-auto px-6 py-8">
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="p-6">
@@ -265,8 +257,8 @@ const Dashboard = () => {
             </Card>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </Layout>
   );
 };
 

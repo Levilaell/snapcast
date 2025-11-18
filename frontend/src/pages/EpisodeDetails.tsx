@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Clock, TrendingUp, Video, ExternalLink, Sparkles, Zap, Play, Scissors } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "sonner";
+import { Layout } from "@/components/Layout";
 
 const EpisodeDetails = () => {
   const { id } = useParams();
@@ -72,45 +73,50 @@ const EpisodeDetails = () => {
 
   if (videoLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Video className="w-8 h-8 text-primary animate-pulse mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando...</p>
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <Video className="w-8 h-8 text-primary animate-pulse mx-auto mb-4" />
+            <p className="text-muted-foreground">Carregando...</p>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   if (!video) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">Episódio não encontrado</p>
-          <Button onClick={() => navigate("/dashboard")} className="mt-4">
-            Voltar ao Dashboard
-          </Button>
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-muted-foreground">Episódio não encontrado</p>
+            <Button onClick={() => navigate("/dashboard")} className="mt-4">
+              Voltar ao Dashboard
+            </Button>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/dashboard")}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Voltar ao Dashboard
-          </Button>
-        </div>
-      </header>
+    <Layout>
+      <div className="min-h-screen">
+        {/* Header */}
+        <header className="border-b border-border bg-card sticky top-0 z-10">
+          <div className="container mx-auto px-4 py-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/dashboard")}
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Voltar ao Dashboard
+            </Button>
+          </div>
+        </header>
 
-      <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8">
         {/* Episode Info */}
         <div className="mb-8">
           <div className="flex items-start gap-6">
@@ -325,8 +331,9 @@ const EpisodeDetails = () => {
             )}
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

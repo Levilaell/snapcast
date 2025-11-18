@@ -6,10 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Download, Loader2, Play, ExternalLink, Save, Edit3, Scissors } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Play, ExternalLink, Save, Edit3, Scissors, Youtube } from "lucide-react";
 import { api } from "@/services/api";
 import { toast } from "sonner";
 import YouTube from "react-youtube";
+import { Layout } from "@/components/Layout";
+import { YouTubePublishModal } from "@/components/YouTubePublishModal";
 
 import type { Clip } from "@/services/api";
 
@@ -31,6 +33,9 @@ const ClipGeneration = () => {
   const [newEndTime, setNewEndTime] = useState(0);
   const [isReprocessing, setIsReprocessing] = useState(false);
   const youtubePlayerRef = useRef<any>(null);
+
+  // YouTube publish modal
+  const [showYouTubeModal, setShowYouTubeModal] = useState(false);
 
   // Busca inicial do clip
   const { data: initialClip, isLoading } = useQuery({
@@ -199,21 +204,24 @@ const ClipGeneration = () => {
 
   if (isLoading || !clip) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Carregando...</p>
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Carregando...</p>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   const isCompleted = clip.status === 'completed';
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card">
+    <Layout>
+      <div className="min-h-screen">
+        {/* Header */}
+        <header className="border-b border-border bg-card">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -241,6 +249,14 @@ const ClipGeneration = () => {
                   >
                     <Scissors className="w-4 h-4 mr-2" />
                     Editar Timeline
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowYouTubeModal(true)}
+                    className="bg-red-500 hover:bg-red-600 text-white border-red-500"
+                  >
+                    <Youtube className="w-4 h-4 mr-2" />
+                    Publicar no YouTube
                   </Button>
                   <Button
                     onClick={handleDownload}
@@ -382,6 +398,30 @@ const ClipGeneration = () => {
               )}
             </Card>
 
+            {/* YouTube Status */}
+            {clip.is_published_youtube && clip.youtube_url && (
+              <Card className="p-6 bg-red-500/5 border-red-500/20">
+                <div className="flex items-start gap-3">
+                  <Youtube className="w-5 h-5 text-red-500 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold mb-2">Publicado no YouTube</h3>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Este clip já foi publicado no seu canal
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => window.open(clip.youtube_url, '_blank')}
+                    >
+                      <Youtube className="w-3 h-3 mr-2" />
+                      Ver no YouTube
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             {/* Transcription */}
             {clip.subtitle_text && (
               <Card className="p-6">
@@ -396,6 +436,17 @@ const ClipGeneration = () => {
           </div>
         </div>
       </div>
+
+      {/* YouTube Publish Modal */}
+      {clip && (
+        <YouTubePublishModal
+          clipId={clip.id}
+          clipTitle={clip.title}
+          clipDescription={clip.description}
+          open={showYouTubeModal}
+          onOpenChange={setShowYouTubeModal}
+        />
+      )}
 
       {/* Timeline Editor Modal */}
       {showTimelineEditor && video && (
@@ -523,7 +574,8 @@ const ClipGeneration = () => {
           </Card>
         </div>
       )}
-    </div>
+      </div>
+    </Layout>
   );
 };
 

@@ -37,6 +37,9 @@ export interface Clip {
   status: 'pending' | 'downloading' | 'processing' | 'completed' | 'failed';
   progress_percentage: number;
   output_file_path: string | null;
+  youtube_url?: string;
+  youtube_video_id?: string;
+  is_published_youtube?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -206,6 +209,35 @@ class ApiService {
         }
       }, 5000);
     });
+  }
+
+  // YouTube Integration
+  async getYouTubeAuthUrl(): Promise<string> {
+    const response = await this.request<{ auth_url: string }>('/youtube/auth/');
+    return response.auth_url;
+  }
+
+  async publishToYouTube(
+    clipId: number,
+    params: {
+      title: string;
+      description: string;
+      tags: string[];
+      privacy: 'public' | 'unlisted' | 'private';
+    }
+  ): Promise<{ youtube_url: string; youtube_video_id: string }> {
+    return this.request(`/clips/${clipId}/publish-youtube/`, {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async getYouTubeStatus(clipId: number): Promise<{
+    is_published: boolean;
+    youtube_url?: string;
+    youtube_video_id?: string;
+  }> {
+    return this.request(`/clips/${clipId}/youtube-status/`);
   }
 }
 
